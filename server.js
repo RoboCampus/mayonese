@@ -15,6 +15,9 @@ http.createServer((req, res) => {
   } else if (url === "/" || url === "/index.html") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     fs.createReadStream(path.join(__dirname, "index.html")).pipe(res);
+  } else if (url === "/game" || url === "/game.html") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    fs.createReadStream(path.join(__dirname, "game.html")).pipe(res);
   } else {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not found");

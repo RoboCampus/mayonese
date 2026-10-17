@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Mayo Shooter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e1114;
+      --steel: #1a1f25;
+      --steel-2: #252c34;
+      --ink: #e8e6e1;
+      --muted: #8b939c;
+      --accent: #e8a317;
+      --accent-dark: #b37a0a;
+      --mayo: #f6ecc4;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Oswald", "Arial Narrow", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      pointer-events: none;
+      font-family: "Bebas Neue", Impact, sans-serif;
+      letter-spacing: 0.05em;
+    }
+
+    .stat { font-size: clamp(1.4rem, 4vw, 2.2rem); line-height: 1; }
+    .stat small {
+      display: block;
+      font-family: "Oswald", sans-serif;
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .stat .val { color: var(--accent); }
+    .center { text-align: center; }
+    .right { text-align: right; }
+
+    .meter {
+      width: clamp(110px, 22vw, 200px);
+      height: 14px;
+      border: 1px solid #3a434d;
+      background: #12161a;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .meter div {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(180deg, #fffdf0, var(--mayo) 60%, #dccb92);
+      transition: width 0.08s linear;
+    }
+    .meter.low div { background: linear-gradient(180deg, #ff9a6b, #c2411f); }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(8, 10, 12, 0.72);
+      backdrop-filter: blur(3px);
+    }
+    .overlay.hidden { display: none; }
+
+    .panel {
+      width: 100%;
+      max-width: 460px;
+      background: linear-gradient(180deg, var(--steel-2), var(--steel));
+      border: 1px solid #2f3842;
+      border-top: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 32px 26px 28px;
+      text-align: center;
+      box-shadow: 0 30px 80px -20px rgba(0,0,0,0.8);
+    }
+    .panel h1 {
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-weight: 400;
+      font-size: clamp(3rem, 12vw, 4.6rem);
+      line-height: 0.95;
+      letter-spacing: 0.04em;
+      margin: 0 0 6px;
+      background: linear-gradient(180deg, #f5c04a 0%, var(--accent) 55%, var(--accent-dark) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .panel p {
+      margin: 10px 0;
+      color: var(--muted);
+      font-weight: 300;
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+    .panel .big {
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-size: 3.4rem;
+      color: var(--ink);
+      margin: 6px 0 0;
+      line-height: 1;
+    }
+    .panel .best { color: var(--accent); font-weight: 400; }
+
+    button {
+      margin-top: 18px;
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 0.08em;
+      padding: 10px 40px 8px;
+      color: #15110a;
+      background: linear-gradient(180deg, #f5c04a, var(--accent));
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 var(--accent-dark);
+    }
+    button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--accent-dark); }
+
+    .back {
+      position: fixed;
+      bottom: 12px;
+      left: 16px;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .back:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <div class="stat"><small>SCORE</small><span class="val" id="score">0</span></div>
+    <div class="stat center"><small>TIME</small><span id="time">60</span></div>
+    <div class="stat right">
+      <small>MAYO <span id="combo"></span></small>
+      <div class="meter" id="meter"><div id="meter-fill"></div></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="menu">
+    <div class="panel">
+      <h1>Mayo Shooter</h1>
+      <p>Aim with your mouse or finger. Hold to squirt.<br>
+         Hit the targets before they get away. The middle is worth the most,
+         and gold targets are worth extra. Hit them back to back for a combo.</p>
+      <p>Watch your mayo. It refills when you stop squeezing.</p>
+      <p class="best" id="menu-best"></p>
+      <button id="start-btn">START</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over">
+    <div class="panel">
+      <h1>Time's Up</h1>
+      <p>Final score</p>
+      <div class="big" id="final-score">0</div>
+      <p id="final-stats"></p>
+      <p class="best" id="final-best"></p>
+      <button id="again-btn">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <a class="back" href="/">&larr; May's location</a>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const GAME_SECONDS = 60;
+    const GRAVITY = 0.3;
+    const SHOT_COST = 3.5;
+    const MAYO_REFILL = 0.45;   // per frame while not squeezing
+    const FIRE_EVERY = 65;      // ms between drops while held
+
+    let w, h, dpr;
+    let lanes = [];
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      lanes = [0.2, 0.36, 0.52].map((f, i) => ({ y: h * f, dir: i % 2 === 0 ? 1 : -1 }));
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    // ---------- High score (per browser; safe if storage is blocked) ----------
+    function loadBest() {
+      try { return Number(localStorage.getItem("mayoBest")) || 0; } catch { return 0; }
+    }
+    function saveBest(v) {
+      try { localStorage.setItem("mayoBest", String(v)); } catch {}
+    }
+    let best = loadBest();
+
+    // ---------- Game state ----------
+    let mode = "menu";
+    let score, timeLeft, mayo, combo, lastHitAt, elapsed, spawnTimer;
+    let shots, hits, bestCombo;
+    let targets = [], drops = [], particles = [], groundSplats = [], popups = [];
+    let aim = -Math.PI / 2;
+    let firing = false, lastFire = 0, squeeze = 0;
+
+    function resetGame() {
+      score = 0; timeLeft = GAME_SECONDS; mayo = 100; combo = 1; lastHitAt = -9999;
+      elapsed = 0; spawnTimer = 0; shots = 0; hits = 0; bestCombo = 1;
+      targets = []; drops = []; particles = []; groundSplats = []; popups = [];
+    }
+    resetGame();
+
+    const bottle = () => ({ x: w / 2, y: h - 18 });
+    const NOZZLE = 132;
+
+    // ---------- Input ----------
+    function updateAim(e) {
+      const b = bottle();
+      let a = Math.atan2(e.clientY - b.y, e.clientX - b.x);
+      if (a > 0) a = e.clientX < b.x ? -Math.PI + 0.12 : -0.12;
+      aim = Math.max(-Math.PI + 0.12, Math.min(-0.12, a));
+    }
+    canvas.addEventListener("pointerdown", e => { updateAim(e); firing = true; });
+    canvas.addEventListener("pointermove", updateAim);
+    window.addEventListener("pointerup", () => { firing = false; });
+    window.addEventListener("pointercancel", () => { firing = false; });
+    window.addEventListener("blur", () => { firing = false; });
+
+    // ---------- Spawning ----------
+    function spawnTarget() {
+      const lane = lanes[Math.floor(Math.random() * lanes.length)];
+      const golden = Math.random() < 0.12;
+      const speedUp = 1 + elapsed / 45;
+      const r = golden ? 17 : 24 + Math.random() * 14;
+      const speed = (golden ? 4.2 : 1.6 + Math.random() * 1.8) * speedUp * Math.min(1.3, w / 900 + 0.4);
+      targets.push({
+        x: lane.dir > 0 ? -r - 10 : w + r + 10,
+        lane, r, golden,
+        vx: speed * lane.dir,
+        swing: Math.random() * Math.PI * 2,
+        hit: false, vy: 0, rot: 0, vr: 0, alpha: 1,
+        splats: [],
+      });
+    }
+
+    // ---------- Shooting ----------
+    function fire(now) {
+      if (mayo < SHOT_COST) return;
+      mayo -= SHOT_COST;
+      shots++;
+      squeeze = 1;
+      const b = bottle();
+      const a = aim + (Math.random() - 0.5) * 0.06;
+      const speed = Math.sqrt(h) * 0.78 * (0.96 + Math.random() * 0.08);
+      drops.push({
+        x: b.x + Math.cos(aim) * NOZZLE,
+        y: b.y + Math.sin(aim) * NOZZLE,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        r: 6 + Math.random() * 3,
+      });
+      lastFire = now;
+    }
+
+    function targetPos(t) {
+      const hang = 16;
+      return { x: t.x, y: t.lane.y + hang + t.r + (t.hit ? t.dropY || 0 : Math.sin(t.swing) * 3) };
+    }
+
+    function hitTarget(t, d, now) {
+      const p = targetPos(t);
+      const dist = Math.hypot(d.x - p.x, d.y - p.y) / t.r;
+      let pts, label;
+      if (t.golden) { pts = 50; label = "GOLD!"; }
+      else if (dist < 0.34) { pts = 30; label = "BULLSEYE!"; }
+      else if (dist < 0.67) { pts = 20; label = null; }
+      else { pts = 10; label = null; }
+
+      combo = now - lastHitAt < 1600 ? Math.min(combo + 1, 8) : 1;
+      bestCombo = Math.max(bestCombo, combo);
+      lastHitAt = now;
+      const gained = pts * combo;
+      score += gained;
+      hits++;
+
+      t.hit = true;
+      t.dropY = 0;
+      t.vr = (Math.random() - 0.5) * 0.15;
+      t.splats.push({ dx: d.x - p.x, dy: d.y - p.y, r: d.r * 1.8, blobs: makeBlobs(d.r * 1.8) });
+
+      popups.push({ x: p.x, y: p.y - t.r - 10, text: `+${gained}`, sub: label || (combo > 1 ? `x${combo} COMBO` : ""), life: 1 });
+      burst(d.x, d.y, 14);
+    }
+
+    function makeBlobs(r) {
+      const n = 5 + Math.floor(Math.random() * 4);
+      return Array.from({ length: n }, () => {
+        const a = Math.random() * Math.PI * 2, dd = Math.random() * r * 0.9;
+        return { dx: Math.cos(a) * dd, dy: Math.sin(a) * dd, r: r * (0.3 + Math.random() * 0.45) };
+      });
+    }
+
+    function burst(x, y, n) {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 4;
+        particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1.5, r: 2 + Math.random() * 3, life: 1 });
+      }
+    }
+
+    // ---------- Update ----------
+    function update(dt, now) {
+      if (mode === "playing") {
+        elapsed += dt / 60;
+        timeLeft -= dt / 60;
+        if (timeLeft <= 0) { timeLeft = 0; endGame(); }
+
+        spawnTimer -= dt / 60;
+        if (spawnTimer <= 0) {
+          spawnTarget();
+          spawnTimer = Math.max(0.42, 1.05 - elapsed * 0.011) * (0.7 + Math.random() * 0.6);
+        }
+
+        if (firing && now - lastFire > FIRE_EVERY) fire(now);
+        if (!firing) mayo = Math.min(100, mayo + MAYO_REFILL * dt);
+        else mayo = Math.min(100, mayo + MAYO_REFILL * 0.15 * dt);
+        if (now - lastHitAt > 1600) combo = 1;
+      }
+
+      squeeze = Math.max(0, squeeze - 0.12 * dt);
+
+      for (const t of targets) {
+        if (!t.hit) {
+          t.x += t.vx * dt;
+          t.swing += 0.08 * dt;
+        } else {
+          t.vy += GRAVITY * dt;
+          t.dropY += t.vy * dt;
+          t.rot += t.vr * dt;
+          t.alpha -= 0.012 * dt;
+        }
+      }
+      targets = targets.filter(t => t.alpha > 0 && t.x > -t.r - 40 && t.x < w + t.r + 40);
+
+      for (const d of drops) {
+        d.vy += GRAVITY * dt;
+        d.x += d.vx * dt;
+        d.y += d.vy * dt;
+        for (const t of targets) {
+          if (t.hit) continue;
+          const p = targetPos(t);
+          if (Math.hypot(d.x - p.x, d.y - p.y) < t.r + d.r * 0.4) {
+            hitTarget(t, d, now);
+            d.dead = true;
+            break;
+          }
+        }
+        if (!d.dead && d.y > h - 4) {
+          groundSplats.push({ x: d.x, y: h - 4, r: d.r * 1.4, blobs: makeBlobs(d.r * 1.4), alpha: 0.9 });
+          if (groundSplats.length > 80) groundSplats.shift();
+          d.dead = true;
+        }
+        if (d.x < -50 || d.x > w + 50) d.dead = true;
+      }
+      drops = drops.filter(d => !d.dead);
+
+      for (const p of particles) {
+        p.vy += GRAVITY * 0.6 * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        p.life -= 0.03 * dt;
+      }
+      particles = particles.filter(p => p.life > 0);
+
+      for (const s of groundSplats) s.alpha -= 0.003 * dt;
+      groundSplats = groundSplats.filter(s => s.alpha > 0);
+
+      for (const p of popups) { p.y -= 0.8 * dt; p.life -= 0.018 * dt; }
+      popups = popups.filter(p => p.life > 0);
+    }
+
+    // ---------- Drawing ----------
+    function mayoBlob(x, y, r, alpha = 1) {
+      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+      g.addColorStop(0, `rgba(255, 253, 240, ${alpha})`);
+      g.addColorStop(0.6, `rgba(246, 236, 196, ${alpha})`);
+      g.addColorStop(1, `rgba(220, 203, 146, ${alpha})`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawSplat(x, y, s, alpha) {
+      mayoBlob(x, y, s.r * 0.7, alpha);
+      for (const b of s.blobs) mayoBlob(x + b.dx, y + b.dy, b.r, alpha);
+    }
+
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "#1a2027");
+      g.addColorStop(1, "#0b0d10");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+
+      // diagonal texture
+      ctx.strokeStyle = "rgba(255,255,255,0.018)";
+      ctx.lineWidth = 2;
+      for (let i = -h; i < w; i += 16) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + h, h); ctx.stroke();
+      }
+
+      // rails
+      for (const lane of lanes) {
+        ctx.fillStyle = "#2c343d";
+        ctx.fillRect(0, lane.y - 4, w, 8);
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        ctx.fillRect(0, lane.y - 4, w, 2);
+        ctx.fillStyle = "#1a1f25";
+        for (let x = 20; x < w; x += 90) {
+          ctx.beginPath(); ctx.arc(x, lane.y, 2.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // floor
+      ctx.fillStyle = "#15191e";
+      ctx.fillRect(0, h - 6, w, 6);
+      ctx.fillStyle = "#e8a317";
+      ctx.fillRect(0, h - 6, w, 1);
+    }
+
+    function drawTarget(t) {
+      const p = targetPos(t);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, t.alpha);
+
+      if (!t.hit) {
+        ctx.strokeStyle = "#5b646e";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(t.x, t.lane.y);
+        ctx.lineTo(p.x, p.y - t.r);
+        ctx.stroke();
+      }
+
+      ctx.translate(p.x, p.y);
+      ctx.rotate(t.rot);
+
+      ctx.shadowColor = "rgba(0,0,0,0.5)";
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 4;
+
+      if (t.golden) {
+        ctx.fillStyle = "#b37a0a";
+        ctx.beginPath(); ctx.arc(0, 0, t.r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowColor = "transparent";
+        ctx.fillStyle = "#f5c04a";
+        ctx.beginPath(); ctx.arc(0, 0, t.r * 0.82, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff3c4";
+        star(0, 0, t.r * 0.55, t.r * 0.24);
+      } else {
+        const rings = ["#b8321f", "#e8e6e1", "#b8321f", "#e8e6e1"];
+        rings.forEach((c, i) => {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.arc(0, 0, t.r * (1 - i * 0.22), 0, Math.PI * 2);
+          ctx.fill();
+          if (i === 0) ctx.shadowColor = "transparent";
+        });
+        ctx.fillStyle = "#e8a317";
+        ctx.beginPath(); ctx.arc(0, 0, t.r * 0.2, 0, Math.PI * 2); ctx.fill();
+      }
+
+      ctx.rotate(-t.rot);
+      for (const s of t.splats) drawSplat(s.dx, s.dy, s, 1);
+      ctx.restore();
+    }
+
+    function star(x, y, outer, inner) {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? inner : outer;
+        const a = -Math.PI / 2 + i * Math.PI / 5;
+        ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function roundRect(x, y, rw, rh, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + rw, y, x + rw, y + rh, r);
+      ctx.arcTo(x + rw, y + rh, x, y + rh, r);
+      ctx.arcTo(x, y + rh, x, y, r);
+      ctx.arcTo(x, y, x + rw, y, r);
+      ctx.closePath();
+    }
+
+    function drawBottle() {
+      const b = bottle();
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(aim + Math.PI / 2);
+      const sq = 1 + squeeze * 0.08;
+      ctx.scale(sq, 1 / sq);
+
+      ctx.shadowColor = "rgba(0,0,0,0.6)";
+      ctx.shadowBlur = 14;
+
+      // body
+      const body = ctx.createLinearGradient(-24, 0, 24, 0);
+      body.addColorStop(0, "#d9c98d");
+      body.addColorStop(0.35, "#fffbe6");
+      body.addColorStop(1, "#cbb979");
+      ctx.fillStyle = body;
+      roundRect(-24, -96, 48, 96, 12);
+      ctx.fill();
+      ctx.shadowColor = "transparent";
+
+      // shoulder
+      ctx.beginPath();
+      ctx.moveTo(-24, -86);
+      ctx.quadraticCurveTo(-22, -108, -9, -112);
+      ctx.lineTo(9, -112);
+      ctx.quadraticCurveTo(22, -108, 24, -86);
+      ctx.closePath();
+      ctx.fill();
+
+      // cap + nozzle
+      ctx.fillStyle = "#b8321f";
+      roundRect(-11, -118, 22, 10, 3);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-6, -116);
+      ctx.lineTo(-2, -NOZZLE);
+      ctx.lineTo(2, -NOZZLE);
+      ctx.lineTo(6, -116);
+      ctx.closePath();
+      ctx.fill();
+
+      // label
+      ctx.fillStyle = "#1a1f25";
+      roundRect(-20, -70, 40, 40, 4);
+      ctx.fill();
+      ctx.fillStyle = "#e8a317";
+      ctx.fillRect(-20, -70, 40, 3);
+      ctx.save();
+      ctx.translate(0, -50);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = "#e8a317";
+      ctx.font = "20px 'Bebas Neue', Impact, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("MAYO", 0, 1);
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    function drawAimGuide() {
+      if (mode !== "playing") return;
+      const b = bottle();
+      const sx = b.x + Math.cos(aim) * NOZZLE, sy = b.y + Math.sin(aim) * NOZZLE;
+      const speed = Math.sqrt(h) * 0.78;
+      let x = sx, y = sy, vx = Math.cos(aim) * speed, vy = Math.sin(aim) * speed;
+      ctx.fillStyle = "rgba(232, 163, 23, 0.35)";
+      for (let i = 0; i < 18; i++) {
+        for (let k = 0; k < 2; k++) { vy += GRAVITY; x += vx; y += vy; }
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(0.8, 2.6 - i * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function draw() {
+      drawBackground();
+      for (const s of groundSplats) drawSplat(s.x, s.y, s, s.alpha);
+      for (const t of targets) drawTarget(t);
+      drawAimGuide();
+      for (const d of drops) mayoBlob(d.x, d.y, d.r);
+      for (const p of particles) mayoBlob(p.x, p.y, p.r, p.life);
+      drawBottle();
+
+      ctx.textAlign = "center";
+      for (const p of popups) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = "#f5c04a";
+        ctx.font = "32px 'Bebas Neue', Impact, sans-serif";
+        ctx.fillText(p.text, p.x, p.y);
+        if (p.sub) {
+          ctx.fillStyle = "#e8e6e1";
+          ctx.font = "18px 'Bebas Neue', Impact, sans-serif";
+          ctx.fillText(p.sub, p.x, p.y + 20);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ---------- HUD ----------
+    const $ = id => document.getElementById(id);
+    function updateHud() {
+      $("score").textContent = score;
+      $("time").textContent = Math.ceil(timeLeft);
+      $("meter-fill").style.width = mayo + "%";
+      $("meter").classList.toggle("low", mayo < 20);
+      $("combo").textContent = combo > 1 ? `· x${combo} COMBO` : "";
+    }
+
+    // ---------- Flow ----------
+    function startGame() {
+      resetGame();
+      mode = "playing";
+      $("menu").classList.add("hidden");
+      $("over").classList.add("hidden");
+    }
+
+    function endGame() {
+      mode = "over";
+      firing = false;
+      const isBest = score > best;
+      if (isBest) { best = score; saveBest(best); }
+      $("final-score").textContent = score;
+      const acc = shots ? Math.round((hits / shots) * 100) : 0;
+      $("final-stats").textContent = `${hits} targets hit · ${acc}% accuracy · best combo x${bestCombo}`;
+      $("final-best").textContent = isBest ? "New high score!" : `High score: ${best}`;
+      $("over").classList.remove("hidden");
+    }
+
+    $("menu-best").textContent = best ? `High score: ${best}` : "";
+    $("start-btn").addEventListener("click", startGame);
+    $("again-btn").addEventListener("click", startGame);
+
+    // ---------- Loop ----------
+    let last = performance.now();
+    function loop(now) {
+      const dt = Math.min(now - last, 50) / (1000 / 60);
+      last = now;
+      if (mode === "menu" && Math.random() < 0.01 && targets.length < 5) spawnTarget();
+      update(dt, now);
+      draw();
+      updateHud();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
