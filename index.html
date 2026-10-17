@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>May's Location</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e1114;
+      --steel: #1a1f25;
+      --steel-2: #252c34;
+      --ink: #e8e6e1;
+      --muted: #8b939c;
+      --accent: #e8a317;
+      --accent-dark: #b37a0a;
+      --border: rgba(232, 163, 23, 0.22);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Oswald", "Arial Narrow", sans-serif;
+      color: var(--ink);
+      background:
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 14px),
+        radial-gradient(ellipse at top, #1d242c 0, var(--bg) 70%);
+      background-color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      overflow-x: hidden;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 760px;
+      background: linear-gradient(180deg, var(--steel-2), var(--steel));
+      border: 1px solid #2f3842;
+      border-top: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 40px 36px 36px;
+      box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255,255,255,0.05);
+      text-align: center;
+      animation: rise 0.7s ease-out both;
+    }
+
+    /* Rivets in the corners */
+    .card::before, .card::after {
+      content: "";
+      position: absolute;
+      top: 14px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #9aa3ad, #3a424b);
+    }
+    .card::before { left: 14px; }
+    .card::after { right: 14px; }
+
+    h1 {
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-weight: 400;
+      font-size: clamp(3.6rem, 13vw, 7rem);
+      letter-spacing: 0.04em;
+      line-height: 0.95;
+      margin: 0;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #f5c04a 0%, var(--accent) 55%, var(--accent-dark) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 4px 0 rgba(0,0,0,0.6));
+    }
+
+    .divider {
+      width: 140px;
+      height: 3px;
+      margin: 18px auto 20px;
+      background: var(--accent);
+    }
+
+    .prompt {
+      font-size: 1.4rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 22px;
+    }
+
+    #search-wrap { margin-bottom: 16px; }
+
+    gmp-place-autocomplete {
+      width: 100%;
+      color-scheme: dark;
+    }
+
+    #map {
+      width: 100%;
+      height: 380px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #2f3842;
+      background: #12161a;
+    }
+
+    .hint {
+      font-size: 0.95rem;
+      font-weight: 300;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin: 10px 0 0;
+    }
+
+    .result {
+      margin-top: 22px;
+      padding: 16px 20px;
+      border-radius: 4px;
+      background: #12161a;
+      border: 1px solid #2f3842;
+      border-left: 4px solid var(--accent);
+      font-size: 1.15rem;
+      display: none;
+      text-align: left;
+    }
+
+    .result.show { display: block; animation: rise 0.4s ease-out both; }
+    .result strong { color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .result .coords { font-size: 0.95rem; color: var(--muted); margin-top: 4px; }
+    .result a { color: var(--accent); }
+
+    .error {
+      padding: 18px;
+      border-radius: 4px;
+      background: #2a1a12;
+      color: #f5c04a;
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+
+    /* Mayo layer sits on top but never blocks clicks */
+    #mayo {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    @media (max-width: 520px) {
+      .card { padding: 34px 18px 24px; }
+      #map { height: 300px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="mayo"></canvas>
+
+  <main class="card">
+    <h1>May's location</h1>
+    <div class="divider"></div>
+    <p class="prompt">please enter here:</p>
+
+    <div id="search-wrap"></div>
+    <div id="map"></div>
+    <p class="hint">Search for a place, or click anywhere on the map.</p>
+
+    <div class="result" id="result">
+      <div><strong>Selected:</strong> <span id="place-name"></span></div>
+      <div class="coords" id="place-coords"></div>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    // ---------- Mayonnaise splatter animation ----------
+    (() => {
+      const canvas = document.getElementById("mayo");
+      const ctx = canvas.getContext("2d");
+      const GRAVITY = 0.35;
+      const MAX_SPLATS = 120;
+      let drops = [];
+      let splats = [];
+      let w, h, dpr;
+
+      function resize() {
+        dpr = window.devicePixelRatio || 1;
+        w = window.innerWidth;
+        h = window.innerHeight;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      // A squirt of mayo from a random spot along the screen edges
+      function squirt() {
+        const side = Math.floor(Math.random() * 3); // 0 = bottom, 1 = left, 2 = right
+        let x, y, angle;
+        if (side === 0) {
+          x = Math.random() * w; y = h + 10;
+          angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.9;
+        } else if (side === 1) {
+          x = -10; y = h * (0.4 + Math.random() * 0.6);
+          angle = -Math.PI / 4 + (Math.random() - 0.5) * 0.6;
+        } else {
+          x = w + 10; y = h * (0.4 + Math.random() * 0.6);
+          angle = -3 * Math.PI / 4 + (Math.random() - 0.5) * 0.6;
+        }
+        const power = 14 + Math.random() * 10;
+        const count = 18 + Math.floor(Math.random() * 18);
+        for (let i = 0; i < count; i++) {
+          const a = angle + (Math.random() - 0.5) * 0.35;
+          const s = power * (0.6 + Math.random() * 0.5);
+          drops.push({
+            x, y,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s,
+            r: 3 + Math.random() * 9,
+            life: 30 + Math.random() * 60,
+          });
+        }
+      }
+
+      // When a drop "hits the screen" it leaves a blobby splat that slowly fades
+      function makeSplat(x, y, r) {
+        const blobs = [];
+        const n = 5 + Math.floor(Math.random() * 6);
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const d = Math.random() * r * 1.4;
+          blobs.push({ dx: Math.cos(a) * d, dy: Math.sin(a) * d, r: r * (0.35 + Math.random() * 0.6) });
+        }
+        // Some drips running down
+        const drips = [];
+        if (r > 6 && Math.random() < 0.6) {
+          drips.push({ dx: (Math.random() - 0.5) * r, len: 0, max: 20 + Math.random() * 60, r: r * 0.3 });
+        }
+        splats.push({ x, y, r: r * 1.6, blobs, drips, alpha: 1 });
+        if (splats.length > MAX_SPLATS) splats.shift();
+      }
+
+      function drawBlob(x, y, r, alpha) {
+        const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+        g.addColorStop(0, `rgba(255, 253, 240, ${alpha})`);
+        g.addColorStop(0.6, `rgba(246, 236, 196, ${alpha})`);
+        g.addColorStop(1, `rgba(222, 205, 150, ${alpha})`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function frame() {
+        ctx.clearRect(0, 0, w, h);
+
+        for (const s of splats) {
+          s.alpha -= 0.0025;
+          for (const d of s.drips) {
+            if (d.len < d.max) d.len += 0.4;
+            ctx.fillStyle = `rgba(240, 228, 182, ${s.alpha})`;
+            ctx.fillRect(s.x + d.dx - d.r, s.y, d.r * 2, d.len);
+            drawBlob(s.x + d.dx, s.y + d.len, d.r * 1.3, s.alpha);
+          }
+          drawBlob(s.x, s.y, s.r, s.alpha);
+          for (const b of s.blobs) drawBlob(s.x + b.dx, s.y + b.dy, b.r, s.alpha);
+        }
+        splats = splats.filter(s => s.alpha > 0);
+
+        for (const d of drops) {
+          d.vy += GRAVITY;
+          d.x += d.vx;
+          d.y += d.vy;
+          d.life--;
+          drawBlob(d.x, d.y, d.r, 0.95);
+          if (d.life <= 0 && d.x > 0 && d.x < w && d.y > 0 && d.y < h) {
+            makeSplat(d.x, d.y, d.r);
+            d.dead = true;
+          } else if (d.y > h + 40 || d.life < -200) {
+            d.dead = true;
+          }
+        }
+        drops = drops.filter(d => !d.dead);
+
+        requestAnimationFrame(frame);
+      }
+
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        squirt();
+        setInterval(squirt, 900);
+        requestAnimationFrame(frame);
+      }
+    })();
+
+    // ---------- Google Maps ----------
+    // The key comes from the GOOGLE_MAPS_API_KEY variable on the server (see server.js, loaded via config.js).
+    const GOOGLE_MAPS_API_KEY = window.GOOGLE_MAPS_API_KEY || "";
+
+    if (!GOOGLE_MAPS_API_KEY) {
+      document.getElementById("map").innerHTML =
+        '<div class="error">No Google Maps API key found. Set the <code>GOOGLE_MAPS_API_KEY</code> ' +
+        'variable in Railway (or when running <code>server.js</code> locally).</div>';
+    } else {
+      // Official Google Maps dynamic library loader
+      (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+        key: GOOGLE_MAPS_API_KEY,
+        v: "weekly",
+      });
+      init();
+    }
+
+    async function init() {
+      const { Map } = await google.maps.importLibrary("maps");
+      const { ColorScheme } = await google.maps.importLibrary("core");
+      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+      const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
+      const { Geocoder } = await google.maps.importLibrary("geocoding");
+
+      const map = new Map(document.getElementById("map"), {
+        center: { lat: 32.0853, lng: 34.7818 },
+        zoom: 12,
+        mapId: "DEMO_MAP_ID",
+        colorScheme: ColorScheme.DARK,
+        mapTypeControl: false,
+        streetViewControl: false,
+      });
+
+      const marker = new AdvancedMarkerElement({ map, gmpDraggable: true });
+      const geocoder = new Geocoder();
+
+      const autocomplete = new PlaceAutocompleteElement();
+      autocomplete.placeholder = "Search for a place...";
+      document.getElementById("search-wrap").appendChild(autocomplete);
+
+      function showSelection(name, latLng) {
+        const lat = typeof latLng.lat === "function" ? latLng.lat() : latLng.lat;
+        const lng = typeof latLng.lng === "function" ? latLng.lng() : latLng.lng;
+        marker.position = { lat, lng };
+        document.getElementById("place-name").textContent = name;
+        document.getElementById("place-coords").innerHTML =
+          `${lat.toFixed(6)}, ${lng.toFixed(6)} &middot; ` +
+          `<a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener">Open in Google Maps</a>`;
+        document.getElementById("result").classList.add("show");
+      }
+
+      async function reverseGeocode(latLng) {
+        try {
+          const { results } = await geocoder.geocode({ location: latLng });
+          return results[0]?.formatted_address || "Pinned location";
+        } catch {
+          return "Pinned location";
+        }
+      }
+
+      autocomplete.addEventListener("gmp-select", async ({ placePrediction }) => {
+        const place = placePrediction.toPlace();
+        await place.fetchFields({ fields: ["displayName", "formattedAddress", "location", "viewport"] });
+        if (!place.location) return;
+        if (place.viewport) map.fitBounds(place.viewport);
+        else { map.setCenter(place.location); map.setZoom(16); }
+        showSelection(place.formattedAddress || place.displayName, place.location);
+      });
+
+      map.addListener("click", async (e) => {
+        showSelection("Looking up address...", e.latLng);
+        showSelection(await reverseGeocode(e.latLng), e.latLng);
+      });
+
+      marker.addListener("dragend", async () => {
+        const pos = marker.position;
+        showSelection(await reverseGeocode(pos), pos);
+      });
+    }
+  </script>
+</body>
+</html>
